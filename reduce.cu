@@ -49,7 +49,7 @@ __global__ void reduce_opt0(double *A, double *blockSums, int n)
 __global__ void reduce_opt1(double *A, double *blockSums, int n)
 {
     unsigned int tid, idx, nThreads;
-    unsigned int j, offset;
+    unsigned int j, offset, s;
     __shared__ double cached[TB_SIZE];
 
     tid = threadIdx.x;
@@ -67,12 +67,14 @@ __global__ void reduce_opt1(double *A, double *blockSums, int n)
     __syncthreads();
 
     // Reduce threads to a block
+    s = blockDim.x / 2;
     for (offset = 1; offset < blockDim.x; offset *= 2)
     {
-        if (tid % (2 * offset) == 0)
+        if (tid < s)
         {
-            cached[tid] += cached[tid + offset];
+            cached[offset * tid] += cached[offset * tid + offset];
         }
+        s /= 2;
         __syncthreads();
     }
 
@@ -92,6 +94,7 @@ int main(int argc, char **argv)
     timer t;
     double tms;
 
+    cudaDeviceReset();
     setlocale(LC_NUMERIC, "");
 
     // Get dimensions
