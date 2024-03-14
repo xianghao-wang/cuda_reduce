@@ -82,6 +82,40 @@ __global__ void reduce_opt1(double *A, double *blockSums, int n)
         blockSums[blockIdx.x] = cached[0];
 }
 
+__global__ void reduce_opt2(double *A, double *blockSums, int n)
+{
+    unsigned int tid, idx, nThreads;
+    unsigned int j, offset;
+    __shared__ double cached[TB_SIZE];
+
+    tid = threadIdx.x;
+    idx = blockIdx.x * blockDim.x + threadIdx.x;
+    nThreads = gridDim.x * blockDim.x;
+
+    // Reduce elements to each threads
+    cached[tid] = 0.0;
+    j = idx;
+    while (j < n)
+    {
+        cached[tid] += A[j];
+        j += nThreads;
+    }
+    __syncthreads();
+
+    // Reduce threads to a block
+    for (offset = blockDim.x / 2; offset > 0; offset /= 2)
+    {
+        if (tid < offset)
+        {
+            cached[tid] += cached[tid + offset];
+        }
+        __syncthreads();
+    }
+
+    if (tid == 0)
+        blockSums[blockIdx.x] = cached[0];
+}
+
 
 int main(int argc, char **argv)
 {
@@ -123,6 +157,8 @@ int main(int argc, char **argv)
     reduce_opt0<<<numBlocks, TB_SIZE>>>(A_dev, blockSums_dev, n);
 #elif __OPT__ == 1
     reduce_opt1<<<numBlocks, TB_SIZE>>>(A_dev, blockSums_dev, n);
+#elif __OPT__ == 2
+    reduce_opt2<<<numBlocks, TB_SIZE>>>(A_dev, blockSums_dev, n);
 #else
     printf("Undefined optimization level!\n");
     exit(1);
