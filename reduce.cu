@@ -9,6 +9,7 @@
 #endif
 
 #define TB_SIZE 1024
+#define NITERS 1024
 
 using namespace std;
 
@@ -72,7 +73,7 @@ __global__ void reduce_opt1(double *A, double *blockSums, int n)
     {
         if (tid < s)
         {
-            cached[offset * tid] += cached[offset * tid + offset];
+            cached[(offset * 2) * tid] += cached[(offset * 2) * tid + offset];
         }
         s /= 2;
         __syncthreads();
@@ -144,27 +145,37 @@ int main(int argc, char **argv)
     cudaMalloc(&blockSums_dev, numBlocks * sizeof(double));
     cudaMemcpy(A_dev, A, n * sizeof(double), cudaMemcpyHostToDevice);
 
-    // Run and get results
+    // Print status
     printf("=========================================\n");
     printf("= Running on kernel with optimization %d =\n", __OPT__);
     printf("=========================================\n");
     printf("Total %'d threads are launched\n", numBlocks * TB_SIZE);
     printf("Total %'d blocks are launched with %d block size\n", numBlocks, TB_SIZE);
 
-    t.start();
+    // Warmup
+    for (i = 0; i < 5; ++ i)
+    {
+        reduce_opt0<<<numBlocks, TB_SIZE>>>(A_dev, blockSums_dev, n);
+        cudaDeviceSynchronize();
+    }
 
+    // Bench
+    t.start();
+    for (i = 0; i < NITERS; ++ i) {
 #if __OPT__ == 0
-    reduce_opt0<<<numBlocks, TB_SIZE>>>(A_dev, blockSums_dev, n);
+        reduce_opt0<<<numBlocks, TB_SIZE>>>(A_dev, blockSums_dev, n);
 #elif __OPT__ == 1
-    reduce_opt1<<<numBlocks, TB_SIZE>>>(A_dev, blockSums_dev, n);
+        reduce_opt1<<<numBlocks, TB_SIZE>>>(A_dev, blockSums_dev, n);
 #elif __OPT__ == 2
-    reduce_opt2<<<numBlocks, TB_SIZE>>>(A_dev, blockSums_dev, n);
+        reduce_opt2<<<numBlocks, TB_SIZE>>>(A_dev, blockSums_dev, n);
 #else
-    printf("Undefined optimization level!\n");
-    exit(1);
+        printf("Undefined optimization level!\n");
+        exit(1);
 #endif
-    cudaDeviceSynchronize();
+        cudaDeviceSynchronize();
+    }
     tms = t.next_time() * 1e3;
+
 
     cudaMemcpy(blockSums, blockSums_dev, numBlocks * sizeof(double), cudaMemcpyDeviceToHost);
 
@@ -173,7 +184,7 @@ int main(int argc, char **argv)
         sum += blockSums[i];
     printf("Result:     %10e\n", sum);
     printf("Expected:   %10e\n", (n - 1.0) * n / 2.0);
-    printf("Kernel time: %5.3lfms\n", tms);
+    printf("Average kernel time: %5.3lfms\n", tms / NITERS);
 
     // Release memory
     cudaFree(A_dev);
