@@ -46,6 +46,40 @@ __global__ void reduce_opt0(double *A, double *blockSums, int n)
         blockSums[blockIdx.x] = cached[0];
 }
 
+__global__ void reduce_opt1(double *A, double *blockSums, int n)
+{
+    unsigned int tid, idx, nThreads;
+    unsigned int j, offset;
+    __shared__ double cached[TB_SIZE];
+
+    tid = threadIdx.x;
+    idx = blockIdx.x * blockDim.x + threadIdx.x;
+    nThreads = gridDim.x * blockDim.x;
+
+    // Reduce elements to each threads
+    cached[tid] = 0.0;
+    j = idx;
+    while (j < n)
+    {
+        cached[tid] += A[j];
+        j += nThreads;
+    }
+    __syncthreads();
+
+    // Reduce threads to a block
+    for (offset = 1; offset < blockDim.x; offset *= 2)
+    {
+        if (tid % (2 * offset) == 0)
+        {
+            cached[tid] += cached[tid + offset];
+        }
+        __syncthreads();
+    }
+
+    if (tid == 0)
+        blockSums[blockIdx.x] = cached[0];
+}
+
 
 int main(int argc, char **argv)
 {
@@ -74,11 +108,22 @@ int main(int argc, char **argv)
     cudaMemcpy(A_dev, A, n * sizeof(double), cudaMemcpyHostToDevice);
 
     // Run and get results
+    printf("=========================================\n");
+    printf("= Running on kernel with optimization %d =\n", __OPT__);
+    printf("=========================================\n");
     printf("Total %'d threads are launched\n", numBlocks * TB_SIZE);
     printf("Total %'d blocks are launched with %d block size\n", numBlocks, TB_SIZE);
 
     t.start();
+
+#if __OPT__ == 0
     reduce_opt0<<<numBlocks, TB_SIZE>>>(A_dev, blockSums_dev, n);
+#elif __OPT__ == 1
+    reduce_opt1<<<numBlocks, TB_SIZE>>>(A_dev, blockSums_dev, n);
+#else
+    printf("Undefined optimization level!\n");
+    exit(1);
+#endif
     cudaDeviceSynchronize();
     tms = t.next_time() * 1e3;
 
