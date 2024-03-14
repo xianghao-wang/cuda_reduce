@@ -8,8 +8,13 @@
 #define __OPT__ 0
 #endif
 
+#ifndef TB_SIZE
 #define TB_SIZE 1024
+#endif
+
+#ifndef NITERS
 #define NITERS 1024
+#endif
 
 using namespace std;
 
