@@ -125,6 +125,12 @@ __global__ void reduce_opt2(double *A, double *blockSums, int n)
 
 int main(int argc, char **argv)
 {
+    if (argc < 2)
+    {
+        fprintf(stderr, "Usage: %s <size>\n", argv[0]);
+        exit(1);
+    }
+
     int n, numBlocks;
     double *A, *blockSums;
     double *A_dev, *blockSums_dev;
@@ -153,7 +159,7 @@ int main(int argc, char **argv)
     // Print status
     printf("=========================================\n");
     printf("= Running on kernel with optimization %d =\n", __OPT__);
-    printf("=========================================\n");
+    printf("=========================================\n\n");
     printf("Total %'d threads are launched\n", numBlocks * TB_SIZE);
     printf("Total %'d blocks are launched with %d block size\n", numBlocks, TB_SIZE);
 
