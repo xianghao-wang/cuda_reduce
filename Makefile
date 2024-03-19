@@ -27,7 +27,7 @@ SIZE ?= 16777216
 prof: $(EXES)
 	mkdir -p profiles
 	for exe in $(EXES) ; do \
-		ncu --set full -o profiles/profile_$$exe ./$$exe $(SIZE) ; \
+		ncu --set full -f -o profiles/profile_$$exe ./$$exe $(SIZE) ; \
 	done 
 
 clean: FORCE 
