@@ -9,7 +9,7 @@ ANNOTATE_FLAGS := -lineinfo --ptx --source-in-ptx
 
 EXES := reduce_opt0 reduce_opt1 reduce_opt2 reduce_opt3
 
-all: $(EXES) reduce.ptx
+all: $(EXES)
 
 reduce_opt0: reduce.cu
 	$(NVCC) $(NVCC_FLAGS) -D__OPT__=0 -o $@ $<
@@ -23,10 +23,17 @@ reduce_opt2: reduce.cu
 reduce_opt3: reduce.cu
 	$(NVCC) $(NVCC_FLAGS) -D__OPT__=3 -o $@ $<
 
-reduce.ptx: reduce.cu
+ptx: reduce.cu
 	$(NVCC) $(ANNOTATE_FLAGS) -D__OPT__=0 -o $@ $<
 
+SIZE ?= 16777216
+prof: $(EXES)
+	mkdir -p profiles
+	for exe in $(EXES) ; do \
+		ncu --set full -o profiles/profile_$$exe ./$$exe $(SIZE) ; \
+	done 
+
 clean: FORCE 
-	rm -rf $(EXES) ptxs *.ptx *.out
+	rm -rf $(EXES) ptxs *.ptx *.out profiles
 
 FORCE: ;
