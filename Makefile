@@ -29,6 +29,7 @@ prof: $(EXES)
 	for exe in $(EXES) ; do \
 		ncu --set full -f -o profiles/profile_$$exe ./$$exe $(SIZE) ; \
 	done 
+	ncu-ui profiles/*
 
 clean: FORCE 
 	rm -rf $(EXES) ptxs *.ptx *.out profiles
