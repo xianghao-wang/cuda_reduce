@@ -13,7 +13,7 @@
 #endif
 
 #ifndef NITERS
-#define NITERS 1024
+#define NITERS 8
 #endif
 
 using namespace std;
