@@ -21,11 +21,11 @@
 
 using namespace std;
 
-__global__ void reduce_opt0(double *A, double *blockSums, int n)
+__global__ void reduce_opt0(float *A, float *blockSums, int n)
 {
     unsigned int tid, idx, nThreads;
     unsigned int j, offset;
-    __shared__ double cached[TB_SIZE];
+    __shared__ float cached[TB_SIZE];
 
     tid = threadIdx.x;
     idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -55,11 +55,11 @@ __global__ void reduce_opt0(double *A, double *blockSums, int n)
         blockSums[blockIdx.x] = cached[0];
 }
 
-__global__ void reduce_opt1(double *A, double *blockSums, int n)
+__global__ void reduce_opt1(float *A, float *blockSums, int n)
 {
     unsigned int tid, idx, nThreads;
     unsigned int j, offset, s;
-    __shared__ double cached[TB_SIZE];
+    __shared__ float cached[TB_SIZE];
 
     tid = threadIdx.x;
     idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -91,11 +91,11 @@ __global__ void reduce_opt1(double *A, double *blockSums, int n)
         blockSums[blockIdx.x] = cached[0];
 }
 
-__global__ void reduce_opt2(double *A, double *blockSums, int n)
+__global__ void reduce_opt2(float *A, float *blockSums, int n)
 {
     unsigned int tid, idx, nThreads;
     unsigned int j, offset;
-    __shared__ double cached[TB_SIZE];
+    __shared__ float cached[TB_SIZE];
 
     tid = threadIdx.x;
     idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -135,13 +135,13 @@ int main(int argc, char **argv)
     }
 
     int n, numBlocks;
-    double *A, *blockSums;
-    double *A_dev, *blockSums_dev;
-    double sum;
+    float *A, *blockSums;
+    float *A_dev, *blockSums_dev;
+    float sum;
     int i;
 
     timer t;
-    double tms;
+    float tms;
 
     cudaDeviceReset();
     setlocale(LC_NUMERIC, "");
@@ -151,13 +151,13 @@ int main(int argc, char **argv)
     numBlocks = (n + TB_SIZE -1) / TB_SIZE;
 
     // Prepare data
-    A = new double[n];
-    blockSums = new double[numBlocks];
+    A = new float[n];
+    blockSums = new float[numBlocks];
     for (i = 0; i < n; ++ i)
-        A[i] = (double) i;
-    cudaMalloc(&A_dev, n * sizeof(double));
-    cudaMalloc(&blockSums_dev, numBlocks * sizeof(double));
-    cudaMemcpy(A_dev, A, n * sizeof(double), cudaMemcpyHostToDevice);
+        A[i] = (float) i;
+    cudaMalloc(&A_dev, n * sizeof(float));
+    cudaMalloc(&blockSums_dev, numBlocks * sizeof(float));
+    cudaMemcpy(A_dev, A, n * sizeof(float), cudaMemcpyHostToDevice);
 
     // Print status
     printf("=========================================\n");
@@ -182,7 +182,7 @@ int main(int argc, char **argv)
     tms = t.next_time() * 1e3;
 
 
-    cudaMemcpy(blockSums, blockSums_dev, numBlocks * sizeof(double), cudaMemcpyDeviceToHost);
+    cudaMemcpy(blockSums, blockSums_dev, numBlocks * sizeof(float), cudaMemcpyDeviceToHost);
 
     // Calculate sum
     for (i = 0; i < numBlocks; ++ i)
