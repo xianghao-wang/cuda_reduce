@@ -5,7 +5,7 @@ NITERS ?= 1024
 
 NVCC_FLAGS += -DTB_SIZE=$(TB_SIZE) -DNITERS=$(NITERS)
 
-ANNOTATE_FLAGS := -G --ptx --source-in-ptx
+ANNOTATE_FLAGS := -lineinfo --ptx --source-in-ptx
 
 EXES := reduce_opt0 reduce_opt1 reduce_opt2 reduce_opt3
 
