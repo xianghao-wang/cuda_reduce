@@ -16,6 +16,9 @@
 #define NITERS 8
 #endif
 
+#define CONCAT(a, b) a ## b
+#define REDUCE(opt) CONCAT(reduce_opt, opt) 
+
 using namespace std;
 
 __global__ void reduce_opt0(double *A, double *blockSums, int n)
@@ -166,23 +169,14 @@ int main(int argc, char **argv)
     // Warmup
     for (i = 0; i < 5; ++ i)
     {
-        reduce_opt0<<<numBlocks, TB_SIZE>>>(A_dev, blockSums_dev, n);
+        REDUCE(__OPT__)<<<numBlocks, TB_SIZE>>>(A_dev, blockSums_dev, n);
         cudaDeviceSynchronize();
     }
 
     // Bench
     t.start();
     for (i = 0; i < NITERS; ++ i) {
-#if __OPT__ == 0
-        reduce_opt0<<<numBlocks, TB_SIZE>>>(A_dev, blockSums_dev, n);
-#elif __OPT__ == 1
-        reduce_opt1<<<numBlocks, TB_SIZE>>>(A_dev, blockSums_dev, n);
-#elif __OPT__ == 2
-        reduce_opt2<<<numBlocks, TB_SIZE>>>(A_dev, blockSums_dev, n);
-#else
-        printf("Undefined optimization level!\n");
-        exit(1);
-#endif
+        REDUCE(__OPT__)<<<numBlocks, TB_SIZE>>>(A_dev, blockSums_dev, n);
         cudaDeviceSynchronize();
     }
     tms = t.next_time() * 1e3;
