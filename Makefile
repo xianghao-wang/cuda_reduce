@@ -3,7 +3,7 @@ NVCC := nvcc
 TB_SIZE ?= 1024
 NITERS ?= 8
 
-NVCC_FLAGS += -DTB_SIZE=$(TB_SIZE) -DNITERS=$(NITERS)
+NVCC_FLAGS += -O3 -DTB_SIZE=$(TB_SIZE) -DNITERS=$(NITERS)
 
 ANNOTATE_FLAGS := -lineinfo --ptx --source-in-ptx
 
