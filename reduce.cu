@@ -125,6 +125,41 @@ __global__ void reduce_opt2(float *A, float *blockSums, int n)
         blockSums[blockIdx.x] = cached[0];
 }
 
+__global__ void reduce_opt3(float *A, float *blockSums, int n)
+{
+    unsigned int tid, idx, nThreads;
+    unsigned int j, offset;
+    __shared__ float cached[TB_SIZE / 2];
+
+    tid = threadIdx.x;
+    idx = blockIdx.x * (2 * blockDim.x) + threadIdx.x;
+    nThreads = gridDim.x * blockDim.x * 2;
+
+    // Reduce elements to each threads
+    cached[tid] = 0.0;
+    j = idx;
+    while (j < n)
+    {
+        cached[tid] += A[j] + A[j + blockDim.x];
+        j += nThreads;
+    }
+    __syncthreads();
+
+    // Reduce threads to a block
+    for (offset = blockDim.x / 2; offset > 0; offset /= 2)
+    {
+        if (tid < offset)
+        {
+            cached[tid] += cached[tid + offset];
+        }
+        __syncthreads();
+    }
+
+    if (tid == 0)
+        blockSums[blockIdx.x] = cached[0];
+}
+
+
 
 int main(int argc, char **argv)
 {
@@ -134,7 +169,7 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    int n, numBlocks;
+    int n, numBlocks, blockSize;
     float *A, *blockSums;
     float *A_dev, *blockSums_dev;
     float sum;
@@ -149,6 +184,7 @@ int main(int argc, char **argv)
     // Get dimensions
     n = atoi(argv[1]);
     numBlocks = (n + TB_SIZE -1) / TB_SIZE;
+    blockSize = __OPT__ == 3 ? TB_SIZE / 2 : TB_SIZE;
 
     // Prepare data
     A = new float[n];
@@ -163,20 +199,20 @@ int main(int argc, char **argv)
     printf("=========================================\n");
     printf("= Running on kernel with optimization %d =\n", __OPT__);
     printf("=========================================\n\n");
-    printf("Total %'d threads are launched\n", numBlocks * TB_SIZE);
-    printf("Total %'d blocks are launched with %d block size\n", numBlocks, TB_SIZE);
+    printf("Total %'d threads are launched\n", numBlocks * blockSize);
+    printf("Total %'d blocks are launched with %d block size\n", numBlocks, blockSize);
 
     // Warmup
     for (i = 0; i < 5; ++ i)
     {
-        REDUCE(__OPT__)<<<numBlocks, TB_SIZE>>>(A_dev, blockSums_dev, n);
+        REDUCE(__OPT__)<<<numBlocks, blockSize>>>(A_dev, blockSums_dev, n);
         cudaDeviceSynchronize();
     }
 
     // Bench
     t.start();
     for (i = 0; i < NITERS; ++ i) {
-        REDUCE(__OPT__)<<<numBlocks, TB_SIZE>>>(A_dev, blockSums_dev, n);
+        REDUCE(__OPT__)<<<numBlocks, blockSize>>>(A_dev, blockSums_dev, n);
         cudaDeviceSynchronize();
     }
     tms = t.next_time() * 1e3;
