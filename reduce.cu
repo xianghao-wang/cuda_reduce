@@ -125,6 +125,8 @@ __global__ void reduce_opt2(float *A, float *blockSums, int n)
         blockSums[blockIdx.x] = cached[0];
 }
 
+
+
 __global__ void reduce_opt3(float *A, float *blockSums, int n)
 {
     unsigned int tid, idx, nThreads;
@@ -159,6 +161,54 @@ __global__ void reduce_opt3(float *A, float *blockSums, int n)
         blockSums[blockIdx.x] = cached[0];
 }
 
+__device__ void warpReduce(volatile float *cached, unsigned int tid)
+{
+    cached[tid] += cached[tid + 32];
+    cached[tid] += cached[tid + 16];
+    cached[tid] += cached[tid + 8];
+    cached[tid] += cached[tid + 4];
+    cached[tid] += cached[tid + 2];
+    cached[tid] += cached[tid + 1];
+}
+
+__global__ void reduce_opt4(float *A, float *blockSums, int n)
+{
+    unsigned int tid, idx, nThreads;
+    unsigned int j, offset;
+    __shared__ float cached[TB_SIZE / 2];
+
+    tid = threadIdx.x;
+    idx = blockIdx.x * (2 * blockDim.x) + threadIdx.x;
+    nThreads = gridDim.x * blockDim.x * 2;
+
+    // Reduce elements to each threads
+    cached[tid] = 0.0;
+    j = idx;
+    while (j < n)
+    {
+        cached[tid] += A[j] + A[j + blockDim.x];
+        j += nThreads;
+    }
+    __syncthreads();
+
+    // Reduce threads to a block
+    for (offset = blockDim.x / 2; offset > 32; offset /= 2)
+    {
+        if (tid < offset)
+        {
+            cached[tid] += cached[tid + offset];
+        }
+        __syncthreads();
+    }
+
+    if (tid < 32)
+    {
+        warpReduce(cached, tid);
+    }
+
+    if (tid == 0)
+        blockSums[blockIdx.x] = cached[0];
+}
 
 
 int main(int argc, char **argv)
@@ -184,7 +234,7 @@ int main(int argc, char **argv)
     // Get dimensions
     n = atoi(argv[1]);
     numBlocks = (n + TB_SIZE -1) / TB_SIZE;
-    blockSize = __OPT__ == 3 ? TB_SIZE / 2 : TB_SIZE;
+    blockSize = __OPT__ >= 3 ? TB_SIZE / 2 : TB_SIZE;
 
     // Prepare data
     A = new float[n];
