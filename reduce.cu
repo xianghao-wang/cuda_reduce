@@ -273,9 +273,12 @@ int main(int argc, char **argv)
     // Calculate sum
     for (i = 0; i < numBlocks; ++ i)
         sum += blockSums[i];
+
+    // Show results
     printf("Result:     %10e\n", sum);
     printf("Expected:   %10e\n", (n - 1.0) * n / 2.0);
     printf("Average kernel time: %5.3lfms\n", tms / NITERS);
+    printf("Performance: %10.3f GFLOPS\n", ((n - 1) / tms * 1e3) / 1e9);
 
     // Release memory
     cudaFree(A_dev);
